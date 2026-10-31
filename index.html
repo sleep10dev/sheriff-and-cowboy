@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Sheriff & Cowboy</title>
+    <style>
+        body {
+            background-color: #111;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+            font-family: monospace;
+            color: #fff;
+        }
+        canvas {
+            border: 4px solid #fff;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            width: 95%;
+            max-width: 1200px;
+            height: auto;
+        }
+        .info {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #aaa;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="1200" height="500"></canvas>
+    <div class="info">ESPAÇO / TOQUE para pular | O mundo alterna entre Dia e Noite a cada 1 minuto!</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let jogando = true;
+        let tempo = 0;
+        let tempoMaximo = 0;
+        let frames = 0;
+        let velocidade = 5;
+
+        let noite = false;
+
+        let estrelas = [
+            { x: 150, y: 70 }, { x: 400, y: 50 }, { x: 750, y: 90 },
+            { x: 1000, y: 60 }, { x: 1150, y: 100 }, { x: 600, y: 80 }
+        ];
+
+        let nuvens = [
+            { x: 200, y: 60, largura: 90 },
+            { x: 700, y: 90, largura: 110 },
+            { x: 1050, y: 50, largura: 80 }
+        ];
+
+        const chaoY = 370;
+
+        let cavalo = { x: 350, y: chaoY - 50, velY: 0, pulando: false };
+        let obstaculo = { x: 1200, tipo: "cacto", largura: 22, altura: 48 };
+
+        window.addEventListener("keydown", function(e) {
+            if (e.code === "Space") {
+                if (jogando && !cavalo.pulando) {
+                    cavalo.velY = -15;
+                    cavalo.pulando = true;
+                } else if (!jogando) {
+                    reiniciar();
+                }
+            }
+        });
+
+        window.addEventListener("touchstart", function() {
+            if (jogando && !cavalo.pulando) {
+                cavalo.velY = -15;
+                cavalo.pulando = true;
+            } else if (!jogando) {
+                reiniciar();
+            }
+        });
+
+        function reiniciar() {
+            jogando = true;
+            tempo = 0;
+            frames = 0;
+            velocidade = 5;
+            noite = false;
+            cavalo.y = chaoY - 50;
+            cavalo.velY = 0;
+            cavalo.pulando = false;
+            obstaculo.x = 1200;
+        }
+
+        function loop() {
+            if (jogando) {
+                frames++;
+                if (frames >= 60) {
+                    tempo++;
+                    frames = 0;
+                    if (tempo > tempoMaximo) tempoMaximo = tempo;
+                    if (velocidade < 12) velocidade += 0.12;
+
+                    if (tempo > 0 && tempo % 60 === 0) {
+                        noite = !noite;
+                    }
+                }
+
+                obstaculo.x -= velocidade;
+                if (obstaculo.x < -80) {
+                    obstaculo.x = canvas.width + Math.max(350, 400 + velocidade * 20);
+                    obstaculo.tipo = Math.random() > 0.4 ? "cacto" : "casa";
+                    obstaculo.altura = obstaculo.tipo === "casa" ? 58 : 48;
+                    obstaculo.largura = obstaculo.tipo === "casa" ? 65 : 22;
+                }
+
+                nuvens.forEach(n => { n.x -= 0.6; if (n.x < -120) n.x = canvas.width + 50; });
+                estrelas.forEach(s => { s.x -= 0.2; if (s.x < 0) s.x = canvas.width; });
+
+                if (cavalo.pulando) {
+                    cavalo.y += cavalo.velY;
+                    cavalo.velY += 0.85;
+                    if (cavalo.y >= chaoY - 50) {
+                        cavalo.y = chaoY - 50;
+                        cavalo.pulando = false;
+                    }
+                }
+
+                if (
+                    cavalo.x + 10 < obstaculo.x + obstaculo.largura &&
+                    cavalo.x + 40 > obstaculo.x &&
+                    cavalo.y + 50 > chaoY - obstaculo.altura
+                ) {
+                    jogando = false;
+                }
+            }
+
+            let corFundo = noite ? "#000000" : "#ffffff";
+            let corElementos = noite ? "#ffffff" : "#000000";
+            let corSecundaria = noite ? "#000000" : "#ffffff";
+            let corNuvem = "#4a90e2";
+
+            // Fundo
+            ctx.fillStyle = corFundo;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (noite) {
+                ctx.fillStyle = "#ffffff";
+                estrelas.forEach(s => { ctx.fillRect(s.x, s.y, 4, 4); });
+            } else {
+                ctx.fillStyle = corNuvem;
+                nuvens.forEach(n => {
+                    ctx.fillRect(n.x, n.y, n.largura, 18);
+                    ctx.fillRect(n.x + 12, n.y - 10, n.largura * 0.6, 12);
+                });
+            }
+
+            // Obstáculo
+            ctx.fillStyle = corElementos;
+            ctx.fillRect(obstaculo.x, chaoY - obstaculo.altura, obstaculo.largura, obstaculo.altura);
+            if (obstaculo.tipo === "casa") {
+                ctx.fillStyle = corFundo;
+                ctx.fillRect(obstaculo.x + 18, chaoY - 24, 18, 24);
+            }
+
+            // Chão
+            ctx.fillStyle = corElementos;
+            ctx.fillRect(0, chaoY, canvas.width, 4);
+
+            // --- SHERIFF (Silhueta limpa e destacada) ---
+            let sx = 130; 
+            let sy = chaoY - 50;
+            ctx.fillStyle = corElementos;
+            
+            // Cavalo do Xerife
+            ctx.fillRect(sx + 4, sy + 18, 46, 18); // Corpo
+            ctx.fillRect(sx + 38, sy + 2, 12, 18);   // Pescoço
+            ctx.fillRect(sx + 44, sy - 4, 10, 8);    // Cabeça
+            ctx.fillRect(sx, sy + 18, 4, 12);        // Rabo
+            ctx.fillRect(sx + 8, sy + 36, 4, 14);    // Perna 1
+            ctx.fillRect(sx + 18, sy + 36, 4, 14);   // Perna 2
+            ctx.fillRect(sx + 34, sy + 36, 4, 14);   // Perna 3
+            ctx.fillRect(sx + 42, sy + 36, 4, 14);   // Perna 4
+
+            // Cavaleiro (Xerife) com espaço livre acima do cavalo
+            ctx.fillRect(sx + 18, sy + 2, 14, 16);   // Tronco
+            ctx.fillRect(sx + 28, sy + 8, 12, 3);    // Braço com arma
+            ctx.fillRect(sx + 14, sy - 8, 22, 4);    // Aba do chapéu
+            ctx.fillRect(sx + 18, sy - 14, 14, 6);   // Topo do chapéu
+            // Distintivo em contraste
+            ctx.fillStyle = corSecundaria;
+            ctx.fillRect(sx + 23, sy + 6, 4, 4);
+
+
+            // --- CAVALO FUGITIVO / COWBOY (Silhueta limpa e destacada) ---
+            let cx = cavalo.x;
+            let cy = cavalo.y;
+            ctx.fillStyle = corElementos;
+
+            // Corpo do Cavalo
+            ctx.fillRect(cx + 4, cy + 18, 46, 18);
+            ctx.fillRect(cx + 38, cy + 2, 12, 18);
+            ctx.fillRect(cx + 44, cy - 4, 10, 8);
+            ctx.fillRect(cx, cy + 18, 4, 12);
+            ctx.fillRect(cx + 8, cy + 36, 4, 14);
+            ctx.fillRect(cx + 18, cy + 36, 4, 14);
+            ctx.fillRect(cx + 34, cy + 36, 4, 14);
+            ctx.fillRect(cx + 42, cy + 36, 4, 14);
+
+            // Cavaleiro (Cowboy)
+            ctx.fillRect(cx + 18, cy + 2, 14, 16);
+            ctx.fillRect(cx + 14, cy - 8, 22, 4);
+            ctx.fillRect(cx + 18, cy - 14, 14, 6);
+
+
+            // Placar
+            ctx.fillStyle = corElementos;
+            ctx.font = "20px monospace";
+            ctx.textAlign = "right";
+            let modoTexto = noite ? " [NOITE]" : " [DIA]";
+            ctx.fillText(`TEMPO: ${tempo}s${modoTexto}   HI: ${tempoMaximo}s`, canvas.width - 40, 45);
+
+            // Game Over
+            if (!jogando) {
+                ctx.fillStyle = noite ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.8)";
+                ctx.fillRect(canvas.width / 2 - 220, canvas.height / 2 - 60, 440, 120);
+                
+                ctx.fillStyle = corFundo;
+                ctx.font = "bold 22px monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("PEGO PELO SHERIFF!", canvas.width / 2, canvas.height / 2 - 10);
+                
+                ctx.font = "14px monospace";
+                ctx.fillText("ESPAÇO OU TOQUE PARA FUGIR DE NOVO", canvas.width / 2, canvas.height / 2 + 25);
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
